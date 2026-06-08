@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Submit Location - CZSK GD</title>
+    <style>
+        body { background-color: #121214; color: white; font-family: sans-serif; text-align: center; }
+        .form-box { max-width: 400px; margin: 50px auto; padding: 20px; border: 1px solid #333; border-radius: 8px; }
+        input { width: 90%; padding: 10px; margin: 10px 0; background: #222; border: 1px solid #444; color: white; }
+        button { padding: 10px 20px; background: #0070f3; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="form-box">
+        <h2>Add Your Coordinates</h2>
+        <form action="/add-player" method="POST">
+            <input type="text" name="player_name" placeholder="GD Username" required>
+            <input type="text" name="coord_x" placeholder="Coordinate X (e.g. 250.5)" required>
+            <input type="text" name="coord_y" placeholder="Coordinate Y (e.g. 400.2)" required>
+            <button type="submit">Submit to Map</button>
+        </form>
+    </div>
+
+</body>
+</html>
