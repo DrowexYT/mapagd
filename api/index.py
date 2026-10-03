@@ -26,8 +26,7 @@ def get_players():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        # Fetch the new columns
-        cursor.execute("SELECT name, profile_link, city, lat, lng FROM players")
+        cursor.execute("SELECT name, profile_link, city, lat, lng, points FROM players")
         players = cursor.fetchall()
         return jsonify({"status": "success", "data": players}), 200
     except Exception as e:
@@ -45,6 +44,7 @@ def add_player():
     city = data.get('city')
     lat = data.get('lat')
     lng = data.get('lng')
+    points = data.get('points', 0.0)
 
     if not all([token, name, profile_link, city, lat, lng]):
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
@@ -54,15 +54,14 @@ def add_player():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # This matches the user by their secret token. 
-        # If they already exist, it updates their name/link/location perfectly.
         sql = """
-            INSERT INTO players (token, name, profile_link, city, lat, lng) 
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO players (token, name, profile_link, city, lat, lng, points) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE 
-            name=VALUES(name), profile_link=VALUES(profile_link), city=VALUES(city), lat=VALUES(lat), lng=VALUES(lng)
+            name=VALUES(name), profile_link=VALUES(profile_link), city=VALUES(city), 
+            lat=VALUES(lat), lng=VALUES(lng), points=VALUES(points)
         """
-        cursor.execute(sql, (token, name, profile_link, city, lat, lng))
+        cursor.execute(sql, (token, name, profile_link, city, lat, lng, points))
         return jsonify({"status": "success"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
