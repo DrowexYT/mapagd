@@ -18,7 +18,7 @@ def get_db_connection():
 
 @app.route('/')
 def home():
-    return jsonify({"status": "online", "message": "CZ/SK AREDL Map API is running!"}), 200
+    return jsonify({"status": "online", "message": "CZ/SK AREDL Map API V9 is running!"}), 200
 
 @app.route('/api/players', methods=['GET'])
 def get_players():
@@ -28,7 +28,8 @@ def get_players():
         cursor = conn.cursor(dictionary=True)
         cursor.execute("""
             SELECT name, profile_link, city, lat, lng, 
-                   rank_packs, rank_nopacks, rank_hardest, rank_extremes 
+                   rank_packs, rank_nopacks, rank_hardest, rank_extremes,
+                   t_rank_packs, t_rank_nopacks, t_rank_hardest, t_rank_extremes
             FROM players
         """)
         players = cursor.fetchall()
@@ -48,10 +49,18 @@ def add_player():
     city = data.get('city')
     lat = data.get('lat')
     lng = data.get('lng')
+    
+    # Official Ranks
     rank_packs = data.get('rank_packs', 99999)
     rank_nopacks = data.get('rank_nopacks', 99999)
     rank_hardest = data.get('rank_hardest', 99999)
     rank_extremes = data.get('rank_extremes', 99999)
+
+    # Theoretical Ranks
+    t_rank_packs = data.get('t_rank_packs', 99999)
+    t_rank_nopacks = data.get('t_rank_nopacks', 99999)
+    t_rank_hardest = data.get('t_rank_hardest', 99999)
+    t_rank_extremes = data.get('t_rank_extremes', 99999)
 
     if not all([token, name, profile_link, city, lat, lng]):
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
@@ -63,16 +72,20 @@ def add_player():
         
         sql = """
             INSERT INTO players (token, name, profile_link, city, lat, lng, 
-                                rank_packs, rank_nopacks, rank_hardest, rank_extremes) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                rank_packs, rank_nopacks, rank_hardest, rank_extremes,
+                                t_rank_packs, t_rank_nopacks, t_rank_hardest, t_rank_extremes) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE 
             name=VALUES(name), profile_link=VALUES(profile_link), city=VALUES(city), 
             lat=VALUES(lat), lng=VALUES(lng), 
             rank_packs=VALUES(rank_packs), rank_nopacks=VALUES(rank_nopacks), 
-            rank_hardest=VALUES(rank_hardest), rank_extremes=VALUES(rank_extremes)
+            rank_hardest=VALUES(rank_hardest), rank_extremes=VALUES(rank_extremes),
+            t_rank_packs=VALUES(t_rank_packs), t_rank_nopacks=VALUES(t_rank_nopacks), 
+            t_rank_hardest=VALUES(t_rank_hardest), t_rank_extremes=VALUES(t_rank_extremes)
         """
         cursor.execute(sql, (token, name, profile_link, city, lat, lng, 
-                             rank_packs, rank_nopacks, rank_hardest, rank_extremes))
+                             rank_packs, rank_nopacks, rank_hardest, rank_extremes,
+                             t_rank_packs, t_rank_nopacks, t_rank_hardest, t_rank_extremes))
         return jsonify({"status": "success"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
