@@ -12,7 +12,7 @@ def get_db_connection():
         host=os.environ.get('TIDB_HOST'),
         user=os.environ.get('TIDB_USER'),
         password=os.environ.get('TIDB_PASSWORD'),
-        database=os.environ.get('TIDB_DB_NAME'),
+        database=os.environ.get('TIDB_DB_NAME', 'test'),
         port=int(os.environ.get('TIDB_PORT', 4000)),
         autocommit=True
     )
