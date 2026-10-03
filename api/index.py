@@ -26,7 +26,7 @@ def get_players():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT name, profile_link, city, lat, lng, points FROM players")
+        cursor.execute("SELECT name, profile_link, city, lat, lng, country_rank FROM players")
         players = cursor.fetchall()
         return jsonify({"status": "success", "data": players}), 200
     except Exception as e:
@@ -44,7 +44,7 @@ def add_player():
     city = data.get('city')
     lat = data.get('lat')
     lng = data.get('lng')
-    points = data.get('points', 0.0)
+    country_rank = data.get('country_rank', 99999)
 
     if not all([token, name, profile_link, city, lat, lng]):
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
@@ -55,13 +55,13 @@ def add_player():
         cursor = conn.cursor()
         
         sql = """
-            INSERT INTO players (token, name, profile_link, city, lat, lng, points) 
+            INSERT INTO players (token, name, profile_link, city, lat, lng, country_rank) 
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE 
             name=VALUES(name), profile_link=VALUES(profile_link), city=VALUES(city), 
-            lat=VALUES(lat), lng=VALUES(lng), points=VALUES(points)
+            lat=VALUES(lat), lng=VALUES(lng), country_rank=VALUES(country_rank)
         """
-        cursor.execute(sql, (token, name, profile_link, city, lat, lng, points))
+        cursor.execute(sql, (token, name, profile_link, city, lat, lng, country_rank))
         return jsonify({"status": "success"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
