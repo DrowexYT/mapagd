@@ -16,7 +16,14 @@ def get_db_connection():
         port=int(os.environ.get('TIDB_PORT', 4000)),
         autocommit=True
     )
-
+    
+@app.route('/')
+def home():
+    return jsonify({
+        "status": "online",
+        "message": "CZ/SK AREDL Map API is running!"
+    }), 200
+    
 @app.route('/api/players', methods=['GET'])
 def get_players():
     conn = None
