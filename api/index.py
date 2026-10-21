@@ -26,7 +26,7 @@ def clean_profile_link(url):
 
 @app.route('/')
 def home():
-    return jsonify({"status": "online", "message": "CZ/SK AREDL Map API (Profile-Keyed) is running!"}), 200
+    return jsonify({"status": "online", "message": "CZ/SK AREDL Map API V17 is running!"}), 200
 
 @app.route('/api/players', methods=['GET'])
 def get_players():
@@ -35,7 +35,7 @@ def get_players():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("""
-            SELECT name, profile_link, city, lat, lng, 
+            SELECT name, profile_link, city, lat, lng, nationality,
                    rank_packs, rank_nopacks, rank_hardest, rank_extremes,
                    t_rank_packs, t_rank_nopacks, t_rank_hardest, t_rank_extremes
             FROM players
@@ -57,6 +57,7 @@ def add_player():
     city = (data.get('city') or '').strip()
     lat = data.get('lat')
     lng = data.get('lng')
+    nationality = data.get('nationality', 'CZ')
     
     if not all([name, profile_link, city, lat is not None, lng is not None]):
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
@@ -76,21 +77,20 @@ def add_player():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Keys uniquely on profile_link. If it exists, updates stats & coordinates.
         sql = """
-            INSERT INTO players (profile_link, name, city, lat, lng, 
+            INSERT INTO players (profile_link, name, city, lat, lng, nationality,
                                 rank_packs, rank_nopacks, rank_hardest, rank_extremes,
                                 t_rank_packs, t_rank_nopacks, t_rank_hardest, t_rank_extremes) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE 
             name=VALUES(name), city=VALUES(city), 
-            lat=VALUES(lat), lng=VALUES(lng), 
+            lat=VALUES(lat), lng=VALUES(lng), nationality=VALUES(nationality),
             rank_packs=VALUES(rank_packs), rank_nopacks=VALUES(rank_nopacks), 
             rank_hardest=VALUES(rank_hardest), rank_extremes=VALUES(rank_extremes),
             t_rank_packs=VALUES(t_rank_packs), t_rank_nopacks=VALUES(t_rank_nopacks), 
             t_rank_hardest=VALUES(t_rank_hardest), t_rank_extremes=VALUES(t_rank_extremes)
         """
-        cursor.execute(sql, (profile_link, name, city, lat, lng, 
+        cursor.execute(sql, (profile_link, name, city, lat, lng, nationality,
                              rank_packs, rank_nopacks, rank_hardest, rank_extremes,
                              t_rank_packs, t_rank_nopacks, t_rank_hardest, t_rank_extremes))
         return jsonify({"status": "success"}), 200
