@@ -23,7 +23,7 @@ Aby skript fungoval, potřebuješ správce uživatelských skriptů.
 - Stáhni a nainstaluj si bezplatné rozšíření **Tampermonkey** z oficiálního obchodu tvého prohlížeče (dostupné pro Chrome, Firefox, Edge, Opera, Safari).
 
 ### Krok 2: Přidání skriptu
-- **[KLIKNI ZDE PRO INSTALACI SKRIPTU](ZDE_VLOZ_ODKAZ_NA_RAW_SOUBOR_Z_GITHUB_REPOZITARE)**
+- **[KLIKNI ZDE PRO INSTALACI SKRIPTU](../../raw/main/czskmapa.js)**
 - Tampermonkey automaticky otevře novou záložku s kódem. Klikni na velké tlačítko **Instalovat** (nebo Install).
 - *Poznámka: Pokud v budoucnu vyjde aktualizace, skript se díky tomuto odkazu dokáže sám aktualizovat na pozadí.*
 
