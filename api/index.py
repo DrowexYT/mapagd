@@ -88,11 +88,30 @@ def add_player():
             rank_packs=VALUES(rank_packs), rank_nopacks=VALUES(rank_nopacks), 
             rank_hardest=VALUES(rank_hardest), rank_extremes=VALUES(rank_extremes),
             t_rank_packs=VALUES(t_rank_packs), t_rank_nopacks=VALUES(t_rank_nopacks), 
-            t_rank_hardest=VALUES(t_rank_hardest), t_rank_extremes=VALUES(t_rank_extremes)
+            t_rank_hardest=VALUES(t_rank_hardest), t_rank_extremes=VALUES(t_rank_extremes),
+            g_rank_packs = data.get('g_rank_packs', 99999)
+            g_rank_nopacks = data.get('g_rank_nopacks', 99999)
+            g_rank_hardest = data.get('g_rank_hardest', 99999)
+            g_rank_extremes = data.get('g_rank_extremes', 99999)
+            g_t_rank_packs = data.get('g_t_rank_packs', 99999)
+            g_t_rank_nopacks = data.get('g_t_rank_nopacks', 99999)
+            g_t_rank_hardest = data.get('g_t_rank_hardest', 99999)
+            g_t_rank_extremes = data.get('g_t_rank_extremes', 99999)
         """
-        cursor.execute(sql, (profile_link, name, city, lat, lng, nationality,
-                             rank_packs, rank_nopacks, rank_hardest, rank_extremes,
-                             t_rank_packs, t_rank_nopacks, t_rank_hardest, t_rank_extremes))
+        cursor.execute("""
+            INSERT INTO players (name, profile_link, city, lat, lng, nationality, 
+                rank_packs, rank_nopacks, rank_hardest, rank_extremes, 
+                t_rank_packs, t_rank_nopacks, t_rank_hardest, t_rank_extremes,
+                g_rank_packs, g_rank_nopacks, g_rank_hardest, g_rank_extremes,
+                g_t_rank_packs, g_t_rank_nopacks, g_t_rank_hardest, g_t_rank_extremes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE 
+                name=VALUES(name), city=VALUES(city), lat=VALUES(lat), lng=VALUES(lng), nationality=VALUES(nationality),
+                rank_packs=VALUES(rank_packs), rank_nopacks=VALUES(rank_nopacks), rank_hardest=VALUES(rank_hardest), rank_extremes=VALUES(rank_extremes),
+                t_rank_packs=VALUES(t_rank_packs), t_rank_nopacks=VALUES(t_rank_nopacks), t_rank_hardest=VALUES(t_rank_hardest), t_rank_extremes=VALUES(t_rank_extremes),
+                g_rank_packs=VALUES(g_rank_packs), g_rank_nopacks=VALUES(g_rank_nopacks), g_rank_hardest=VALUES(g_rank_hardest), g_rank_extremes=VALUES(g_rank_extremes),
+                g_t_rank_packs=VALUES(g_t_rank_packs), g_t_rank_nopacks=VALUES(g_t_rank_nopacks), g_t_rank_hardest=VALUES(g_t_rank_hardest), g_t_rank_extremes=VALUES(g_t_rank_extremes)
+        """,
         return jsonify({"status": "success"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
