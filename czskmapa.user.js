@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AREDL CZ/SK Komunitní Mapa Hráčů
 // @namespace    http://tampermonkey.net/
-// @version      18.4
+// @version      1.1
 // @description  Interaktivní Leaflet komunitní mapa vložená přímo do AREDL pro české a slovenské Geometry Dash hráče.
 // @author       Drowex
 // @match        https://aredl.net/*
@@ -477,7 +477,7 @@
 
         let hasTheoExt = false;
 
-        const nameElement = document.querySelector('p.clamp-[text-2xl-4xl-clamp], p.font-medium.text-secondary-foreground');
+        const nameElement = document.querySelector('p.clamp-\\[text-2xl-4xl-clamp\\], p.font-medium.text-secondary-foreground');
 
         if (nameElement && window.location.href.includes('/profile/user/')) {
             detectedName = nameElement.textContent.trim();
@@ -495,39 +495,25 @@
             if (countryIdx !== -1) {
                 let countryText = bodyText.substring(countryIdx);
 
-                const extract = (regex, text) => {
-                    const m = text.match(regex);
-                    if (!m) return null;
-                    if (m[2]) return { theo: parseInt(m[1]), off: parseInt(m[2]), isTheo: true, matchStr: m[0] };
-                    return { theo: 99999, off: parseInt(m[1]), isTheo: false, matchStr: m[0] };
+                // V18.5 FIX: Hledá výhradně číslo za znakem "#", ignoruje samotné body
+                const extractRank = (keyword) => {
+                    const regex = new RegExp(keyword + '[^#]{0,100}#\\s*(\\d+)');
+                    const m = countryText.match(regex);
+                    return m ? parseInt(m[1]) : 99999;
                 };
 
-                const resPacks = extract(/WITH\s*PACK[^\d]*?(\d+)(?:\s*\(\s*(?:#)?\s*(\d+)\s*\))?/, countryText);
-                if (resPacks) {
-                    oPacks = resPacks.off;
-                    if (resPacks.isTheo) { tPacks = resPacks.theo; hasTheoExt = true; }
-                    countryText = countryText.replace(resPacks.matchStr, '');
-                }
+                oPacks = extractRank('POINTS RANK \\(WITH PACKS\\)');
+                oNoPacks = extractRank('POINTS RANK(?! \\(WITH)');
+                oHardest = extractRank('HARDEST LEVEL RANK');
+                oExtremes = extractRank('EXTREMES COUNT RANK');
 
-                const resNo = extract(/POINTS[^\d]*?(\d+)(?:\s*\(\s*(?:#)?\s*(\d+)\s*\))?/, countryText);
-                if (resNo) {
-                    oNoPacks = resNo.off;
-                    if (resNo.isTheo) { tNoPacks = resNo.theo; hasTheoExt = true; }
-                    countryText = countryText.replace(resNo.matchStr, '');
-                }
+                tPacks = extractRank('THEORETICAL POINTS RANK \\(WITH PACKS\\)');
+                tNoPacks = extractRank('THEORETICAL POINTS RANK(?! \\(WITH)');
+                tHardest = extractRank('THEORETICAL HARDEST LEVEL RANK');
+                tExtremes = extractRank('THEORETICAL EXTREMES COUNT RANK');
 
-                const resHard = extract(/HARDEST[^\d]*?(\d+)(?:\s*\(\s*(?:#)?\s*(\d+)\s*\))?/, countryText);
-                if (resHard) {
-                    oHardest = resHard.off;
-                    if (resHard.isTheo) { tHardest = resHard.theo; hasTheoExt = true; }
-                    countryText = countryText.replace(resHard.matchStr, '');
-                }
-
-                const resExt = extract(/EXTREME[^\d]*?(\d+)(?:\s*\(\s*(?:#)?\s*(\d+)\s*\))?/, countryText);
-                if (resExt) {
-                    oExtremes = resExt.off;
-                    if (resExt.isTheo) { tExtremes = resExt.theo; hasTheoExt = true; }
-                    countryText = countryText.replace(resExt.matchStr, '');
+                if (tPacks !== 99999 || tNoPacks !== 99999 || tHardest !== 99999 || tExtremes !== 99999) {
+                    hasTheoExt = true;
                 }
             }
         }
@@ -719,8 +705,10 @@
                         <hr style="border:0; border-top:1px solid #2a2e3d; margin:4px 0;" />
 
                         <span style="font-size:14px; font-weight:bold; color:#fff;">Tvůj Profil</span>
-                        <input type="text" id="czsk-input-name" placeholder="Username" value="${info.name}" />
-                        <input type="text" id="czsk-input-link" placeholder="AREDL profil URL" value="${info.link}" />
+
+                        <!-- V18.5 FIX: Inputy jsou uzamčené. Uživatel si je nemůže manuálně přepsat -->
+                        <input type="text" id="czsk-input-name" placeholder="Jméno (otevři si svůj profil)" value="${info.name}" readonly style="cursor: not-allowed; background: #1c202c; color: #8e95a5;" />
+                        <input type="text" id="czsk-input-link" placeholder="Odkaz (otevři si svůj profil)" value="${info.link}" readonly style="cursor: not-allowed; background: #1c202c; color: #8e95a5;" />
 
                         <div style="display:flex; gap:8px;">
                             <div style="display:flex; flex:1; background:#252a38; border:1px solid #444a5e; border-radius:6px; overflow:hidden;">
@@ -994,10 +982,10 @@
 
                     <div style="background:#11141c; border-radius:8px; padding:10px; margin-bottom:12px; display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                         <div style="${activeMetric === 'rank_packs' ? 'color:' + meta.color + '; font-weight:bold;' : 'color:#aaa;'} font-size: 12px;">
-                            📦 S balíčky<br><span style="font-size:17px; display:block; margin-top:4px;">${formatDisplayRank('rank_packs')}</span>
+                            📦 S packy<br><span style="font-size:17px; display:block; margin-top:4px;">${formatDisplayRank('rank_packs')}</span>
                         </div>
                         <div style="${activeMetric === 'rank_nopacks' ? 'color:' + meta.color + '; font-weight:bold;' : 'color:#aaa;'} font-size: 12px;">
-                            📄 Bez balíčků<br><span style="font-size:17px; display:block; margin-top:4px;">${formatDisplayRank('rank_nopacks')}</span>
+                            📄 Bez packů<br><span style="font-size:17px; display:block; margin-top:4px;">${formatDisplayRank('rank_nopacks')}</span>
                         </div>
                         <div style="${activeMetric === 'rank_hardest' ? 'color:' + meta.color + '; font-weight:bold;' : 'color:#aaa;'} font-size: 12px;">
                             💀 Nejtěžší<br><span style="font-size:17px; display:block; margin-top:4px;">${formatDisplayRank('rank_hardest')}</span>
@@ -1038,7 +1026,7 @@
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: url,
-                    headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/18.4' },
+                    headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/18.5' },
                     onload: function (res) {
                         try {
                             const data = JSON.parse(res.responseText);
@@ -1084,8 +1072,13 @@
             const city = document.getElementById('czsk-input-city').value.trim();
             const nationality = document.getElementById('czsk-input-nat').value;
 
-            if (!name || !link || !city) {
-                statusMsg.textContent = 'Prosím vyplň Jméno, Odkaz a Město.';
+            if (!name || !link) {
+                statusMsg.textContent = 'Musíš si otevřít svůj vlastní AREDL profil, abys mohl přidat lokaci.';
+                statusMsg.style.color = '#ff6b6b';
+                return;
+            }
+            if (!city) {
+                statusMsg.textContent = 'Prosím vyplň Město.';
                 statusMsg.style.color = '#ff6b6b';
                 return;
             }
@@ -1098,7 +1091,7 @@
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: geocodeUrl,
-                headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/18.4' },
+                headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/18.5' },
                 onload: function (geoRes) {
                     try {
                         const geoData = JSON.parse(geoRes.responseText);
