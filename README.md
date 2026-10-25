@@ -32,11 +32,12 @@ Aby skript fungoval, potřebuješ správce uživatelských skriptů.
 ## Jak se přidat na mapu
 
 1. Otevři si stránku [aredl.net](https://aredl.net).
-2. V horním navigačním panelu uvidíš nové tlačítko **🗺️ CZ/SK MAPA**. Klikni na něj.
-3. V pravém panelu vyhledej sekci **Tvůj Profil**.
-4. Vyplň své Username a vlož URL odkaz na svůj AREDL profil.
-5. Vyber si svou státní vlajku (CZ / SK) a do vyhledávače napiš své město nebo okres (např. *Brno*, *Praha*, *Košice*).
-6. Klikni na **Přidat / Aktualizovat na mapě**. 
+2. Otevři svůj profil vpravo nahoře přes tvoji ikonku a pak "Profile".
+3. V horním navigačním panelu uvidíš nové tlačítko **🗺️ CZ/SK MAPA**. Klikni na něj.
+4. V pravém panelu vyhledej sekci **Tvůj Profil**.
+5. Vyplň své Username a vlož URL odkaz na svůj AREDL profil.
+6. Vyber si svou státní vlajku (CZ / SK) a do vyhledávače napiš své město nebo okres (např. *Brno*, *Praha*, *Košice*).
+7. Klikni na **Přidat / Aktualizovat na mapě**. 
 
 Tvá hvězda se okamžitě objeví na mapě a žebříček si automaticky stáhne tvé aktuální AREDL statistiky.
 
