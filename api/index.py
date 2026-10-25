@@ -35,11 +35,13 @@ def get_players():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("""
-            SELECT name, profile_link, city, lat, lng, nationality,
-                   rank_packs, rank_nopacks, rank_hardest, rank_extremes,
-                   t_rank_packs, t_rank_nopacks, t_rank_hardest, t_rank_extremes
-            FROM players
-        """)
+    SELECT name, profile_link, city, lat, lng, nationality, 
+           rank_packs, rank_nopacks, rank_hardest, rank_extremes,
+           t_rank_packs, t_rank_nopacks, t_rank_hardest, t_rank_extremes,
+           g_rank_packs, g_rank_nopacks, g_rank_hardest, g_rank_extremes,
+           g_t_rank_packs, g_t_rank_nopacks, g_t_rank_hardest, g_t_rank_extremes
+    FROM test.players
+""")
         players = cursor.fetchall()
         return jsonify({"status": "success", "data": players}), 200
     except Exception as e:
