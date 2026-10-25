@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AREDL CZ/SK Komunitní Mapa Hráčů
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Interaktivní Leaflet komunitní mapa vložená přímo do AREDL pro české a slovenské Geometry Dash hráče.
 // @author       Drowex
 // @match        https://aredl.net/*
@@ -189,7 +189,7 @@
         .czsk-lb-item {
             display: flex;
             align-items: center;
-            padding: 10px 20px;
+            padding: 14px 20px;
             cursor: pointer;
             transition: 0.15s;
             border-bottom: 1px solid #202430;
@@ -205,18 +205,18 @@
             flex: 1;
             color: #fff;
             font-weight: bold;
-            font-size: 13px;
+            font-size: 15px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
         .czsk-flag-img {
-            width: 16px;
+            width: 24px;
             height: auto;
             border-radius: 2px;
-            box-shadow: 0 0 2px rgba(0,0,0,0.5);
-            margin-left: 8px;
+            box-shadow: 0 0 3px rgba(0,0,0,0.6);
+            margin-left: 12px;
             display: inline-block;
         }
 
@@ -453,11 +453,18 @@
         }
     `);
 
-    function getMarkerConfig(rank) {
-        if (rank > 0 && rank <= 10) return { color: '#00ffff', tier: 'Top 10' };
-        if (rank > 10 && rank <= 25) return { color: '#ffcc00', tier: 'Top 25' };
-        if (rank > 25 && rank <= 100) return { color: '#d4d4d4', tier: 'Top 100' };
-        return { color: '#c07a50', tier: 'Unranked/Bronze' };
+    function getMarkerConfig(rank, isGlobal = false) {
+        if (isGlobal) {
+            if (rank > 0 && rank <= 100) return { color: '#00ffff', tier: 'Top 100' }; // Diamond
+            if (rank > 100 && rank <= 1000) return { color: '#ffcc00', tier: 'Top 1k' }; // Gold
+            if (rank > 1000 && rank <= 10000) return { color: '#d4d4d4', tier: 'Top 10k' }; // Silver
+            return { color: '#c07a50', tier: '10k+ / Bronze' }; // Bronze
+        } else {
+            if (rank > 0 && rank <= 10) return { color: '#00ffff', tier: 'Top 10' };
+            if (rank > 10 && rank <= 25) return { color: '#ffcc00', tier: 'Top 25' };
+            if (rank > 25 && rank <= 100) return { color: '#d4d4d4', tier: 'Top 100' };
+            return { color: '#c07a50', tier: 'Unranked/Bronze' };
+        }
     }
 
     function autoDetectProfileInfo() {
@@ -474,6 +481,16 @@
         let tNoPacks = GM_getValue('czsk_saved_t_nopacks', 99999);
         let tHardest = GM_getValue('czsk_saved_t_hardest', 99999);
         let tExtremes = GM_getValue('czsk_saved_t_extremes', 99999);
+
+        let gPacks = GM_getValue('czsk_saved_g_packs', 99999);
+        let gNoPacks = GM_getValue('czsk_saved_g_nopacks', 99999);
+        let gHardest = GM_getValue('czsk_saved_g_hardest', 99999);
+        let gExtremes = GM_getValue('czsk_saved_g_extremes', 99999);
+
+        let gtPacks = GM_getValue('czsk_saved_gt_packs', 99999);
+        let gtNoPacks = GM_getValue('czsk_saved_gt_nopacks', 99999);
+        let gtHardest = GM_getValue('czsk_saved_gt_hardest', 99999);
+        let gtExtremes = GM_getValue('czsk_saved_gt_extremes', 99999);
 
         let hasTheoExt = false;
 
@@ -492,38 +509,46 @@
             const bodyText = document.body.innerText.toUpperCase().replace(/\s+/g, ' ');
             const countryIdx = bodyText.indexOf('COUNTRY RANKINGS');
 
-            if (countryIdx !== -1) {
-                let countryText = bodyText.substring(countryIdx);
+            let globalText = countryIdx !== -1 ? bodyText.substring(0, countryIdx) : bodyText;
+            let countryText = countryIdx !== -1 ? bodyText.substring(countryIdx) : "";
 
-                // V18.5 FIX: Hledá výhradně číslo za znakem "#", ignoruje samotné body
-                const extractRank = (keyword) => {
-                    const regex = new RegExp(keyword + '[^#]{0,100}#\\s*(\\d+)');
-                    const m = countryText.match(regex);
-                    return m ? parseInt(m[1]) : 99999;
-                };
+            const extractRank = (keyword, textToSearch) => {
+                const regex = new RegExp(keyword + '[^#]{0,100}#\\s*(\\d+)');
+                const m = textToSearch.match(regex);
+                return m ? parseInt(m[1]) : 99999;
+            };
 
-                oPacks = extractRank('POINTS RANK \\(WITH PACKS\\)');
-                oNoPacks = extractRank('POINTS RANK(?! \\(WITH)');
-                oHardest = extractRank('HARDEST LEVEL RANK');
-                oExtremes = extractRank('EXTREMES COUNT RANK');
+            if (countryText) {
+                oPacks = extractRank('POINTS RANK \\(WITH PACKS\\)', countryText);
+                oNoPacks = extractRank('POINTS RANK(?! \\(WITH)', countryText);
+                oHardest = extractRank('HARDEST LEVEL RANK', countryText);
+                oExtremes = extractRank('EXTREMES COUNT RANK', countryText);
 
-                tPacks = extractRank('THEORETICAL POINTS RANK \\(WITH PACKS\\)');
-                tNoPacks = extractRank('THEORETICAL POINTS RANK(?! \\(WITH)');
-                tHardest = extractRank('THEORETICAL HARDEST LEVEL RANK');
-                tExtremes = extractRank('THEORETICAL EXTREMES COUNT RANK');
-
-                if (tPacks !== 99999 || tNoPacks !== 99999 || tHardest !== 99999 || tExtremes !== 99999) {
-                    hasTheoExt = true;
-                }
+                tPacks = extractRank('THEORETICAL POINTS RANK \\(WITH PACKS\\)', countryText);
+                tNoPacks = extractRank('THEORETICAL POINTS RANK(?! \\(WITH)', countryText);
+                tHardest = extractRank('THEORETICAL HARDEST LEVEL RANK', countryText);
+                tExtremes = extractRank('THEORETICAL EXTREMES COUNT RANK', countryText);
             }
+
+            if (globalText) {
+                gPacks = extractRank('POINTS RANK \\(WITH PACKS\\)', globalText);
+                gNoPacks = extractRank('POINTS RANK(?! \\(WITH)', globalText);
+                gHardest = extractRank('HARDEST LEVEL RANK', globalText);
+                gExtremes = extractRank('EXTREMES COUNT RANK', globalText);
+
+                gtPacks = extractRank('THEORETICAL POINTS RANK \\(WITH PACKS\\)', globalText);
+                gtNoPacks = extractRank('THEORETICAL POINTS RANK(?! \\(WITH)', globalText);
+                gtHardest = extractRank('THEORETICAL HARDEST LEVEL RANK', globalText);
+                gtExtremes = extractRank('THEORETICAL EXTREMES COUNT RANK', globalText);
+            }
+
+            if (tPacks !== 99999 || tNoPacks !== 99999 || tHardest !== 99999 || tExtremes !== 99999) hasTheoExt = true;
         }
 
         return {
-            name: detectedName,
-            link: detectedLink,
-            nationality: nationality,
-            oPacks, oNoPacks, oHardest, oExtremes,
-            tPacks, tNoPacks, tHardest, tExtremes,
+            name: detectedName, link: detectedLink, nationality: nationality,
+            oPacks, oNoPacks, oHardest, oExtremes, tPacks, tNoPacks, tHardest, tExtremes,
+            gPacks, gNoPacks, gHardest, gExtremes, gtPacks, gtNoPacks, gtHardest, gtExtremes,
             hasTheoreticalExtension: hasTheoExt
         };
     }
@@ -578,7 +603,15 @@
                 t_rank_packs: info.tPacks,
                 t_rank_nopacks: info.tNoPacks,
                 t_rank_hardest: info.tHardest,
-                t_rank_extremes: info.tExtremes
+                t_rank_extremes: info.tExtremes,
+                g_rank_packs: info.gPacks,
+                g_rank_nopacks: info.gNoPacks,
+                g_rank_hardest: info.gHardest,
+                g_rank_extremes: info.gExtremes,
+                g_t_rank_packs: info.gtPacks,
+                g_t_rank_nopacks: info.gtNoPacks,
+                g_t_rank_hardest: info.gtHardest,
+                g_t_rank_extremes: info.gtExtremes
             }),
             onload: function (res) {
                 try {
@@ -672,7 +705,7 @@
                     <div class="czsk-left-sidebar">
                         <div class="czsk-lb-header">Leaderboard</div>
                         <div class="czsk-lb-tabs">
-                            <button class="czsk-lb-tab active" data-nat="ALL">Vše</button>
+                            <button class="czsk-lb-tab active" data-nat="ALL">Global</button>
                             <button class="czsk-lb-tab" data-nat="CZ"><img src="https://flagcdn.com/w20/cz.png" class="czsk-flag-img" style="margin:0; width:14px;"> CZ</button>
                             <button class="czsk-lb-tab" data-nat="SK"><img src="https://flagcdn.com/w20/sk.png" class="czsk-flag-img" style="margin:0; width:14px;"> SK</button>
                         </div>
@@ -806,31 +839,40 @@
         const lbContainer = document.getElementById('czsk-leaderboard-list');
         if (!lbContainer) return;
 
+        const isGlobal = activeNatFilter === 'ALL';
+
         let sorted = [...filteredPlayers].sort((a, b) => {
-            const valA = (isTheoreticalMode && a['t_' + activeMetric] !== 99999) ? a['t_' + activeMetric] : a[activeMetric];
-            const valB = (isTheoreticalMode && b['t_' + activeMetric] !== 99999) ? b['t_' + activeMetric] : b[activeMetric];
-            const parsedA = parseInt(valA) || 99999;
-            const parsedB = parseInt(valB) || 99999;
-            return parsedA - parsedB;
+            let metricKey = isGlobal ? 'g_rank_' + activeMetric.split('_')[1] : activeMetric;
+            if (isTheoreticalMode) metricKey = isGlobal ? 'g_t_' + metricKey.substring(2) : 't_' + activeMetric;
+
+            const valA = parseInt(a[metricKey]) || 99999;
+            const valB = parseInt(b[metricKey]) || 99999;
+            return valA - valB;
         });
 
         lbContainer.innerHTML = '';
 
         sorted.forEach(player => {
-            const rank = (isTheoreticalMode && player['t_' + activeMetric] !== 99999) ? player['t_' + activeMetric] : player[activeMetric];
-            if (parseInt(rank) === 99999) return;
+            let metricKey = isGlobal ? 'g_rank_' + activeMetric.split('_')[1] : activeMetric;
+            if (isTheoreticalMode) metricKey = isGlobal ? 'g_t_' + metricKey.substring(2) : 't_' + activeMetric;
 
-            const meta = getMarkerConfig(rank);
+            const rank = parseInt(player[metricKey]) || 99999;
+            if (rank === 99999) return;
+
+            // Pass isGlobal to get the correct color tier
+            const meta = getMarkerConfig(rank, isGlobal);
             const flagUrl = player.nationality === 'SK' ? 'https://flagcdn.com/w20/sk.png' : 'https://flagcdn.com/w20/cz.png';
+            const prefix = isGlobal ? '<span style="font-size: 13px;">🌐</span>' : '';
 
             const item = document.createElement('div');
             item.className = 'czsk-lb-item';
             item.innerHTML = `
-                <div class="czsk-lb-rank" style="color: ${meta.color}">#${rank}</div>
+                <div class="czsk-lb-rank" style="color: ${meta.color}; width: 85px; font-size: 15px; font-weight: 900; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
+                    ${prefix}#${rank}
+                </div>
                 <div class="czsk-lb-name">${player.name}</div>
                 <img src="${flagUrl}" class="czsk-flag-img">
             `;
-
             item.onclick = () => {
                 if (mapInstance && mapMarkers[player.profile_link]) {
                     mapInstance.closePopup();
@@ -929,12 +971,20 @@
 
         mapMarkers = {};
 
+        const isGlobal = activeNatFilter === 'ALL';
+
         filteredPlayers.forEach(player => {
-            const valOff = parseInt(player[activeMetric]) || 99999;
-            const valTheo = parseInt(player['t_' + activeMetric]) || 99999;
+            // 1. Select the correct database columns based on the active tab
+            const offKey = isGlobal ? 'g_' + activeMetric : activeMetric;
+            const theoKey = isGlobal ? 'g_t_' + activeMetric : 't_' + activeMetric;
+
+            const valOff = parseInt(player[offKey]) || 99999;
+            const valTheo = parseInt(player[theoKey]) || 99999;
 
             const activeRank = (isTheoreticalMode && valTheo !== 99999) ? valTheo : valOff;
-            const meta = getMarkerConfig(activeRank);
+
+            // 2. Pass the correct context-aware rank to calculate the exact color
+            const meta = getMarkerConfig(activeRank, isGlobal);
 
             const flagUrl = player.nationality === 'SK' ? 'https://flagcdn.com/w20/sk.png' : 'https://flagcdn.com/w20/cz.png';
 
@@ -965,13 +1015,20 @@
             let safeLink = player.profile_link;
             if (!safeLink.startsWith('http://') && !safeLink.startsWith('https://')) safeLink = 'https://' + safeLink;
 
-            const formatDisplayRank = (key) => {
-                const off = parseInt(player[key]) || 99999;
-                const theo = parseInt(player['t_' + key]) || 99999;
+            // 3. Update the popup formatter so clicking a star shows Global stats on the Global tab
+            const formatDisplayRank = (baseKey) => {
+                const popupOffKey = isGlobal ? 'g_' + baseKey : baseKey;
+                const popupTheoKey = isGlobal ? 'g_t_' + baseKey : 't_' + baseKey;
+
+                const off = parseInt(player[popupOffKey]) || 99999;
+                const theo = parseInt(player[popupTheoKey]) || 99999;
+
                 const strOff = off !== 99999 ? `#${off}` : '—';
                 const strTheo = theo !== 99999 ? `#${theo}` : '—';
                 return (isTheoreticalMode && theo !== 99999) ? `${strTheo} <span style="font-size:12px; color:#888;">(${strOff})</span>` : strOff;
             };
+
+            // (The marker.bindPopup HTML block remains exactly the same below this)
 
             marker.bindPopup(`
                 <div style="font-size:14px; font-family:sans-serif; min-width:200px; line-height:1.3;">
@@ -1126,7 +1183,15 @@
                                 t_rank_packs: info.tPacks,
                                 t_rank_nopacks: info.tNoPacks,
                                 t_rank_hardest: info.tHardest,
-                                t_rank_extremes: info.tExtremes
+                                t_rank_extremes: info.tExtremes,
+                                g_rank_packs: info.gPacks,
+                                g_rank_nopacks: info.gNoPacks,
+                                g_rank_hardest: info.gHardest,
+                                g_rank_extremes: info.gExtremes,
+                                g_t_rank_packs: info.gtPacks,
+                                g_t_rank_nopacks: info.gtNoPacks,
+                                g_t_rank_hardest: info.gtHardest,
+                                g_t_rank_extremes: info.gtExtremes
                             }),
                             onload: function (postRes) {
                                 try {
