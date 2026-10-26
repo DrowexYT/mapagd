@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AREDL CZ/SK Komunitní Mapa Hráčů
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.5
 // @description  Interaktivní Leaflet komunitní mapa vložená přímo do AREDL pro české a slovenské Geometry Dash hráče.
 // @author       Drowex
 // @match        https://aredl.net/*
@@ -958,7 +958,7 @@
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: url,
-                    headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/1.4' },
+                    headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/1.5' },
                     onload: function (res) {
                         try {
                             const data = JSON.parse(res.responseText);
@@ -998,6 +998,14 @@
         const statusMsg = document.getElementById('czsk-status-msg');
 
         btn.onclick = () => {
+            // Re-inserted edit-badge ownership check for security
+            const isOwnProfile = document.querySelector('img[src*="/assets/badge-icons/edit.webp"]');
+            if (!isOwnProfile) {
+                statusMsg.textContent = 'Můžeš přidat nebo upravit lokaci pouze ze svého vlastního profilu!';
+                statusMsg.style.color = '#ff6b6b';
+                return;
+            }
+
             const name = document.getElementById('czsk-input-name').value.trim();
             const rawLink = document.getElementById('czsk-input-link').value.trim();
             const link = normalizeUrl(rawLink);
@@ -1023,7 +1031,7 @@
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: geocodeUrl,
-                headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/1.4' },
+                headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/1.5' },
                 onload: function (geoRes) {
                     try {
                         const geoData = JSON.parse(geoRes.responseText);
