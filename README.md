@@ -25,7 +25,7 @@ Aby skript fungoval, potřebuješ správce uživatelských skriptů.
 - **[KLIKNI ZDE PRO INSTALACI SKRIPTU](https://greasyfork.org/en/scripts/602344-aredl-cz-sk-komunitn%C3%AD-mapa-hr%C3%A1%C4%8D%C5%AF)**
 - Tampermonkey automaticky otevře novou záložku. Klikni na **Instalovat** (nebo Install).
 - **Důležité:** Během instalace nebo při prvním spuštění tě může Tampermonkey zeptat na povolení přístupu k doménám `mapagd.vercel.app` (databáze) a `nominatim.openstreetmap.org` (mapa). Zvol **Vždy povolit** (Always allow).
-- ## Pokud máte ještě starou verzi, tak ji smažte, a stáhněte tuto. Obsahuje auto updaty, které stará verze nepodporuje
+- ### Pokud máte ještě starou verzi, tak ji smažte, a stáhněte tuto. Obsahuje auto updaty, které stará verze nepodporuje
 
 
 
