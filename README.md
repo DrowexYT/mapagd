@@ -23,7 +23,7 @@ Aby skript fungoval, potřebuješ správce uživatelských skriptů.
 - Stáhni a nainstaluj si bezplatné rozšíření **Tampermonkey** z oficiálního obchodu tvého prohlížeče (dostupné pro Chrome, Firefox, Edge, Opera, Safari).
 
 ### Krok 2: Přidání skriptu
-- **[KLIKNI ZDE PRO INSTALACI SKRIPTU]((https://greasyfork.org/en/scripts/602344-aredl-cz-sk-komunitn%C3%AD-mapa-hr%C3%A1%C4%8D%C5%AF))**
+- **[KLIKNI ZDE PRO INSTALACI SKRIPTU][https://greasyfork.org/en/scripts/602344-aredl-cz-sk-komunitn%C3%AD-mapa-hr%C3%A1%C4%8D%C5%AF](https://greasyfork.org/en/scripts/602344-aredl-cz-sk-komunitn%C3%AD-mapa-hr%C3%A1%C4%8D%C5%AF)**
 - Tampermonkey automaticky otevře novou záložku s kódem. Klikni na velké tlačítko **Instalovat** (nebo Install).
 - *Poznámka: Pokud v budoucnu vyjde aktualizace, skript se díky tomuto odkazu dokáže sám aktualizovat na pozadí.*
 
