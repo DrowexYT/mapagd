@@ -26,6 +26,8 @@ Aby skript fungoval, potřebuješ správce uživatelských skriptů.
 - Tampermonkey automaticky otevře novou záložku. Klikni na **Instalovat** (nebo Install).
 - **Důležité:** Během instalace nebo při prvním spuštění tě může Tampermonkey zeptat na povolení přístupu k doménám `mapagd.vercel.app` (databáze) a `nominatim.openstreetmap.org` (mapa). Zvol **Vždy povolit** (Always allow).
 
+#### Pokud máte ještě starou verzi, tak ji smažte, a stáhněte tuto. Obsahuje auto updaty, které stará verze nepodporuje
+
 ## Jak se přidat na mapu
 
 1. Otevři si stránku [aredl.net](https://aredl.net).
