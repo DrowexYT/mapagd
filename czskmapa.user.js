@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         AREDL CZ/SK Komunitní Mapa Hráčů
 // @namespace    http://tampermonkey.net/
-// @version      1.4
-// @updateURL    https://github.com/DrowexYT/mapagd/raw/refs/heads/main/czskmapa.user.js
-// @downloadURL  https://github.com/DrowexYT/mapagd/raw/refs/heads/main/czskmapa.user.js
+// @version      1.5
 // @description  Interaktivní Leaflet komunitní mapa vložená přímo do AREDL pro české a slovenské Geometry Dash hráče.
 // @author       Drowex
 // @match        https://aredl.net/*
+// @updateURL    https://github.com/DrowexYT/mapagd/raw/refs/heads/main/czskmapa.user.js
+// @downloadURL  https://github.com/DrowexYT/mapagd/raw/refs/heads/main/czskmapa.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -323,7 +323,7 @@
                     <div style="display:flex; align-items:center; gap:12px;">
                         <span style="font-size:20px;">🗺️</span>
                         <div>
-                            <h2 style="margin:0; font-size:16px; font-weight:800; color:#ff9800;">CZ/SK AREDL KOMUNITNÍ MAPA</h2>
+                            <h2 style="margin:0; font-size:16px; font-weight:800; color:#ff9800;">CZ/SK AREDL KOMUNITNÍ MAPA (v1.5)</h2>
                             <span style="font-size:11px; color:#8e95a5;">Interaktivní mapa hráčů napříč Českem a Slovenskem</span>
                         </div>
                     </div>
