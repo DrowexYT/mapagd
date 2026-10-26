@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AREDL CZ/SK Komunitní Mapa Hráčů
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.4
 // @description  Interaktivní Leaflet komunitní mapa vložená přímo do AREDL pro české a slovenské Geometry Dash hráče.
 // @author       Drowex
 // @match        https://aredl.net/*
@@ -27,7 +27,6 @@
     let cachedPlayers = [];
     let isFetchingPlayers = false;
     let activeMetric = 'rank_packs';
-    let isTheoreticalMode = false;
     let activeNatFilter = 'ALL';
     let mapMarkers = {};
 
@@ -315,54 +314,6 @@
             background: rgba(255, 152, 0, 0.15) !important;
             color: #ffa726 !important;
         }
-        .czsk-switch-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #11141c;
-            padding: 10px 12px;
-            border-radius: 8px;
-            border: 1px solid #2a2e3d;
-        }
-        .czsk-switch {
-            position: relative;
-            display: inline-block;
-            width: 36px;
-            height: 20px;
-        }
-        .czsk-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .czsk-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #252a38;
-            transition: .2s;
-            border-radius: 20px;
-            border: 1px solid #444a5e;
-        }
-        .czsk-slider:before {
-            position: absolute;
-            content: "";
-            height: 14px;
-            width: 14px;
-            left: 2px;
-            bottom: 2px;
-            background-color: #8e95a5;
-            transition: .2s;
-            border-radius: 50%;
-        }
-        .czsk-switch input:checked + .czsk-slider {
-            background-color: #ff9800;
-            border-color: #ff9800;
-        }
-        .czsk-switch input:checked + .czsk-slider:before {
-            transform: translateX(16px);
-            background-color: #121316;
-        }
         .czsk-star-marker-container {
             background: transparent;
             border: none;
@@ -455,10 +406,10 @@
 
     function getMarkerConfig(rank, isGlobal = false) {
         if (isGlobal) {
-            if (rank > 0 && rank <= 100) return { color: '#00ffff', tier: 'Top 100' }; // Diamond
-            if (rank > 100 && rank <= 1000) return { color: '#ffcc00', tier: 'Top 1k' }; // Gold
-            if (rank > 1000 && rank <= 10000) return { color: '#d4d4d4', tier: 'Top 10k' }; // Silver
-            return { color: '#c07a50', tier: '10k+ / Bronze' }; // Bronze
+            if (rank > 0 && rank <= 100) return { color: '#00ffff', tier: 'Top 100' };
+            if (rank > 100 && rank <= 1000) return { color: '#ffcc00', tier: 'Top 1k' };
+            if (rank > 1000 && rank <= 10000) return { color: '#d4d4d4', tier: 'Top 10k' };
+            return { color: '#c07a50', tier: '10k+ / Bronze' };
         } else {
             if (rank > 0 && rank <= 10) return { color: '#00ffff', tier: 'Top 10' };
             if (rank > 10 && rank <= 25) return { color: '#ffcc00', tier: 'Top 25' };
@@ -477,22 +428,10 @@
         let oHardest = GM_getValue('czsk_saved_r_hardest', 99999);
         let oExtremes = GM_getValue('czsk_saved_r_extremes', 99999);
 
-        let tPacks = GM_getValue('czsk_saved_t_packs', 99999);
-        let tNoPacks = GM_getValue('czsk_saved_t_nopacks', 99999);
-        let tHardest = GM_getValue('czsk_saved_t_hardest', 99999);
-        let tExtremes = GM_getValue('czsk_saved_t_extremes', 99999);
-
         let gPacks = GM_getValue('czsk_saved_g_packs', 99999);
         let gNoPacks = GM_getValue('czsk_saved_g_nopacks', 99999);
         let gHardest = GM_getValue('czsk_saved_g_hardest', 99999);
         let gExtremes = GM_getValue('czsk_saved_g_extremes', 99999);
-
-        let gtPacks = GM_getValue('czsk_saved_gt_packs', 99999);
-        let gtNoPacks = GM_getValue('czsk_saved_gt_nopacks', 99999);
-        let gtHardest = GM_getValue('czsk_saved_gt_hardest', 99999);
-        let gtExtremes = GM_getValue('czsk_saved_gt_extremes', 99999);
-
-        let hasTheoExt = false;
 
         const nameElement = document.querySelector('p.clamp-\\[text-2xl-4xl-clamp\\], p.font-medium.text-secondary-foreground');
 
@@ -500,10 +439,12 @@
             detectedName = nameElement.textContent.trim();
             detectedLink = normalizeUrl(window.location.href);
 
-            const flags = document.querySelectorAll('img');
+            const flags = document.querySelectorAll('img:not(.czsk-flag-img)');
             for(let img of flags) {
-                if(img.src.includes('cz.svg') || img.src.includes('cz.png') || img.alt.toLowerCase().includes('czech')) nationality = 'CZ';
-                if(img.src.includes('sk.svg') || img.src.includes('sk.png') || img.alt.toLowerCase().includes('slovak')) nationality = 'SK';
+                if (img.src.includes('flagcdn.com') || img.src.includes('/flags/') || img.src.includes('/country-flags/')) {
+                    if(img.src.includes('cz.svg') || img.src.includes('cz.png') || img.alt.toLowerCase().includes('czech')) nationality = 'CZ';
+                    if(img.src.includes('sk.svg') || img.src.includes('sk.png') || img.alt.toLowerCase().includes('slovak')) nationality = 'SK';
+                }
             }
 
             const bodyText = document.body.innerText.toUpperCase().replace(/\s+/g, ' ');
@@ -513,9 +454,9 @@
             let countryText = countryIdx !== -1 ? bodyText.substring(countryIdx) : "";
 
             const extractRank = (keyword, textToSearch) => {
-                const regex = new RegExp(keyword + '[^#]{0,100}#\\s*(\\d+)');
+                const regex = new RegExp(keyword + '[^#]{0,100}#\\s*([\\d,]+)');
                 const m = textToSearch.match(regex);
-                return m ? parseInt(m[1]) : 99999;
+                return m ? parseInt(m[1].replace(/,/g, '')) : 99999;
             };
 
             if (countryText) {
@@ -523,11 +464,6 @@
                 oNoPacks = extractRank('POINTS RANK(?! \\(WITH)', countryText);
                 oHardest = extractRank('HARDEST LEVEL RANK', countryText);
                 oExtremes = extractRank('EXTREMES COUNT RANK', countryText);
-
-                tPacks = extractRank('THEORETICAL POINTS RANK \\(WITH PACKS\\)', countryText);
-                tNoPacks = extractRank('THEORETICAL POINTS RANK(?! \\(WITH)', countryText);
-                tHardest = extractRank('THEORETICAL HARDEST LEVEL RANK', countryText);
-                tExtremes = extractRank('THEORETICAL EXTREMES COUNT RANK', countryText);
             }
 
             if (globalText) {
@@ -535,21 +471,13 @@
                 gNoPacks = extractRank('POINTS RANK(?! \\(WITH)', globalText);
                 gHardest = extractRank('HARDEST LEVEL RANK', globalText);
                 gExtremes = extractRank('EXTREMES COUNT RANK', globalText);
-
-                gtPacks = extractRank('THEORETICAL POINTS RANK \\(WITH PACKS\\)', globalText);
-                gtNoPacks = extractRank('THEORETICAL POINTS RANK(?! \\(WITH)', globalText);
-                gtHardest = extractRank('THEORETICAL HARDEST LEVEL RANK', globalText);
-                gtExtremes = extractRank('THEORETICAL EXTREMES COUNT RANK', globalText);
             }
-
-            if (tPacks !== 99999 || tNoPacks !== 99999 || tHardest !== 99999 || tExtremes !== 99999) hasTheoExt = true;
         }
 
         return {
             name: detectedName, link: detectedLink, nationality: nationality,
-            oPacks, oNoPacks, oHardest, oExtremes, tPacks, tNoPacks, tHardest, tExtremes,
-            gPacks, gNoPacks, gHardest, gExtremes, gtPacks, gtNoPacks, gtHardest, gtExtremes,
-            hasTheoreticalExtension: hasTheoExt
+            oPacks, oNoPacks, oHardest, oExtremes,
+            gPacks, gNoPacks, gHardest, gExtremes
         };
     }
 
@@ -576,10 +504,10 @@
             info.oNoPacks !== GM_getValue('czsk_saved_r_nopacks') ||
             info.oHardest !== GM_getValue('czsk_saved_r_hardest') ||
             info.oExtremes !== GM_getValue('czsk_saved_r_extremes') ||
-            info.tPacks !== GM_getValue('czsk_saved_t_packs') ||
-            info.tNoPacks !== GM_getValue('czsk_saved_t_nopacks') ||
-            info.tHardest !== GM_getValue('czsk_saved_t_hardest') ||
-            info.tExtremes !== GM_getValue('czsk_saved_t_extremes') ||
+            info.gPacks !== GM_getValue('czsk_saved_g_packs') ||
+            info.gNoPacks !== GM_getValue('czsk_saved_g_nopacks') ||
+            info.gHardest !== GM_getValue('czsk_saved_g_hardest') ||
+            info.gExtremes !== GM_getValue('czsk_saved_g_extremes') ||
             info.nationality !== savedNat
         );
 
@@ -600,18 +528,10 @@
                 rank_nopacks: info.oNoPacks,
                 rank_hardest: info.oHardest,
                 rank_extremes: info.oExtremes,
-                t_rank_packs: info.tPacks,
-                t_rank_nopacks: info.tNoPacks,
-                t_rank_hardest: info.tHardest,
-                t_rank_extremes: info.tExtremes,
                 g_rank_packs: info.gPacks,
                 g_rank_nopacks: info.gNoPacks,
                 g_rank_hardest: info.gHardest,
-                g_rank_extremes: info.gExtremes,
-                g_t_rank_packs: info.gtPacks,
-                g_t_rank_nopacks: info.gtNoPacks,
-                g_t_rank_hardest: info.gtHardest,
-                g_t_rank_extremes: info.gtExtremes
+                g_rank_extremes: info.gExtremes
             }),
             onload: function (res) {
                 try {
@@ -623,10 +543,10 @@
                         GM_setValue('czsk_saved_r_nopacks', info.oNoPacks);
                         GM_setValue('czsk_saved_r_hardest', info.oHardest);
                         GM_setValue('czsk_saved_r_extremes', info.oExtremes);
-                        GM_setValue('czsk_saved_t_packs', info.tPacks);
-                        GM_setValue('czsk_saved_t_nopacks', info.tNoPacks);
-                        GM_setValue('czsk_saved_t_hardest', info.tHardest);
-                        GM_setValue('czsk_saved_t_extremes', info.tExtremes);
+                        GM_setValue('czsk_saved_g_packs', info.gPacks);
+                        GM_setValue('czsk_saved_g_nopacks', info.gNoPacks);
+                        GM_setValue('czsk_saved_g_hardest', info.gHardest);
+                        GM_setValue('czsk_saved_g_extremes', info.gExtremes);
                     }
                 } catch (e) {}
             }
@@ -727,19 +647,10 @@
                             <label><input type="radio" name="czsk-metric" value="rank_extremes" ${activeMetric === 'rank_extremes' ? 'checked' : ''}> 🏆 Počet Extreme Demonu</label>
                         </div>
 
-                        <div id="czsk-theo-switch-box" class="czsk-switch-container" style="${info.hasTheoreticalExtension ? '' : 'display:none;'}">
-                            <span style="font-size:13px; color:#fff; font-weight:bold;">Zobrazit teoretické staty</span>
-                            <label class="czsk-switch">
-                                <input type="checkbox" id="czsk-theo-checkbox" ${isTheoreticalMode ? 'checked' : ''}>
-                                <span class="czsk-slider"></span>
-                            </label>
-                        </div>
-
                         <hr style="border:0; border-top:1px solid #2a2e3d; margin:4px 0;" />
 
                         <span style="font-size:14px; font-weight:bold; color:#fff;">Tvůj Profil</span>
 
-                        <!-- V18.5 FIX: Inputy jsou uzamčené. Uživatel si je nemůže manuálně přepsat -->
                         <input type="text" id="czsk-input-name" placeholder="Jméno (otevři si svůj profil)" value="${info.name}" readonly style="cursor: not-allowed; background: #1c202c; color: #8e95a5;" />
                         <input type="text" id="czsk-input-link" placeholder="Odkaz (otevři si svůj profil)" value="${info.link}" readonly style="cursor: not-allowed; background: #1c202c; color: #8e95a5;" />
 
@@ -818,13 +729,6 @@
             });
         });
 
-        if (info.hasTheoreticalExtension) {
-            document.getElementById('czsk-theo-checkbox').addEventListener('change', (e) => {
-                isTheoreticalMode = e.target.checked;
-                renderPins(cachedPlayers);
-            });
-        }
-
         document.querySelectorAll('input[name="czsk-metric"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 activeMetric = e.target.value;
@@ -843,8 +747,6 @@
 
         let sorted = [...filteredPlayers].sort((a, b) => {
             let metricKey = isGlobal ? 'g_rank_' + activeMetric.split('_')[1] : activeMetric;
-            if (isTheoreticalMode) metricKey = isGlobal ? 'g_t_' + metricKey.substring(2) : 't_' + activeMetric;
-
             const valA = parseInt(a[metricKey]) || 99999;
             const valB = parseInt(b[metricKey]) || 99999;
             return valA - valB;
@@ -854,14 +756,12 @@
 
         sorted.forEach(player => {
             let metricKey = isGlobal ? 'g_rank_' + activeMetric.split('_')[1] : activeMetric;
-            if (isTheoreticalMode) metricKey = isGlobal ? 'g_t_' + metricKey.substring(2) : 't_' + activeMetric;
-
             const rank = parseInt(player[metricKey]) || 99999;
             if (rank === 99999) return;
 
-            // Pass isGlobal to get the correct color tier
             const meta = getMarkerConfig(rank, isGlobal);
-            const flagUrl = player.nationality === 'SK' ? 'https://flagcdn.com/w20/sk.png' : 'https://flagcdn.com/w20/cz.png';
+            const pNat = (player.nationality || 'CZ').toUpperCase();
+            const flagUrl = pNat === 'SK' ? 'https://flagcdn.com/w20/sk.png' : 'https://flagcdn.com/w20/cz.png';
             const prefix = isGlobal ? '<span style="font-size: 13px;">🌐</span>' : '';
 
             const item = document.createElement('div');
@@ -876,10 +776,8 @@
             item.onclick = () => {
                 if (mapInstance && mapMarkers[player.profile_link]) {
                     mapInstance.closePopup();
-
                     const targetZoom = 10;
                     mapInstance.flyTo([player.lat, player.lng], targetZoom, { duration: 0.5 });
-
                     setTimeout(() => {
                         if (mapMarkers[player.profile_link]) {
                             mapMarkers[player.profile_link].openPopup();
@@ -924,25 +822,19 @@
             modalContainer.addEventListener('animationend', () => {
                 if (mapInstance) {
                     mapInstance.invalidateSize(true);
-                    if (cachedPlayers.length > 0) renderPins(cachedPlayers);
+                    if (cachedPlayers.length > 1) renderPins(cachedPlayers);
                 }
-            });
+            }, { once: true });
         }
 
         const ro = new ResizeObserver(() => {
-            if (mapInstance) {
-                mapInstance.invalidateSize(true);
-                if (cachedPlayers.length > 0) renderPins(cachedPlayers);
-            }
+            if (mapInstance) mapInstance.invalidateSize(true);
         });
         ro.observe(mapContainer);
 
         let shakeTicks = 0;
         const wakeUpLeaflet = setInterval(() => {
-            if (mapInstance) {
-                mapInstance.invalidateSize(true);
-                if (cachedPlayers.length > 0) renderPins(cachedPlayers);
-            }
+            if (mapInstance) mapInstance.invalidateSize(true);
             shakeTicks++;
             if (shakeTicks >= 15) clearInterval(wakeUpLeaflet);
         }, 100);
@@ -961,7 +853,7 @@
     function renderPins(players) {
         if (!mapInstance) return;
 
-        const filteredPlayers = activeNatFilter === 'ALL' ? players : players.filter(p => p.nationality === activeNatFilter);
+        const filteredPlayers = activeNatFilter === 'ALL' ? players : players.filter(p => (p.nationality || 'CZ').toUpperCase() === activeNatFilter);
 
         renderLeaderboard(filteredPlayers);
 
@@ -970,23 +862,16 @@
         });
 
         mapMarkers = {};
-
         const isGlobal = activeNatFilter === 'ALL';
 
         filteredPlayers.forEach(player => {
-            // 1. Select the correct database columns based on the active tab
             const offKey = isGlobal ? 'g_' + activeMetric : activeMetric;
-            const theoKey = isGlobal ? 'g_t_' + activeMetric : 't_' + activeMetric;
-
             const valOff = parseInt(player[offKey]) || 99999;
-            const valTheo = parseInt(player[theoKey]) || 99999;
-
-            const activeRank = (isTheoreticalMode && valTheo !== 99999) ? valTheo : valOff;
-
-            // 2. Pass the correct context-aware rank to calculate the exact color
+            const activeRank = valOff;
             const meta = getMarkerConfig(activeRank, isGlobal);
 
-            const flagUrl = player.nationality === 'SK' ? 'https://flagcdn.com/w20/sk.png' : 'https://flagcdn.com/w20/cz.png';
+            const pNat = (player.nationality || 'CZ').toUpperCase();
+            const flagUrl = pNat === 'SK' ? 'https://flagcdn.com/w20/sk.png' : 'https://flagcdn.com/w20/cz.png';
 
             const starIcon = L.divIcon({
                 className: 'czsk-star-marker-container',
@@ -1004,31 +889,21 @@
                         </span>
                     </div>
                 `,
-                iconSize: [120, 60],
-                iconAnchor: [60, 30]
+                iconSize: [65, 45],
+                iconAnchor: [30, 22]
             });
 
             const marker = L.marker([player.lat, player.lng], { icon: starIcon }).addTo(mapInstance);
-
             mapMarkers[player.profile_link] = marker;
 
             let safeLink = player.profile_link;
             if (!safeLink.startsWith('http://') && !safeLink.startsWith('https://')) safeLink = 'https://' + safeLink;
 
-            // 3. Update the popup formatter so clicking a star shows Global stats on the Global tab
             const formatDisplayRank = (baseKey) => {
                 const popupOffKey = isGlobal ? 'g_' + baseKey : baseKey;
-                const popupTheoKey = isGlobal ? 'g_t_' + baseKey : 't_' + baseKey;
-
                 const off = parseInt(player[popupOffKey]) || 99999;
-                const theo = parseInt(player[popupTheoKey]) || 99999;
-
-                const strOff = off !== 99999 ? `#${off}` : '—';
-                const strTheo = theo !== 99999 ? `#${theo}` : '—';
-                return (isTheoreticalMode && theo !== 99999) ? `${strTheo} <span style="font-size:12px; color:#888;">(${strOff})</span>` : strOff;
+                return off !== 99999 ? `#${off}` : '—';
             };
-
-            // (The marker.bindPopup HTML block remains exactly the same below this)
 
             marker.bindPopup(`
                 <div style="font-size:14px; font-family:sans-serif; min-width:200px; line-height:1.3;">
@@ -1083,7 +958,7 @@
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: url,
-                    headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/18.5' },
+                    headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/1.4' },
                     onload: function (res) {
                         try {
                             const data = JSON.parse(res.responseText);
@@ -1148,7 +1023,7 @@
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: geocodeUrl,
-                headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/18.5' },
+                headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/1.4' },
                 onload: function (geoRes) {
                     try {
                         const geoData = JSON.parse(geoRes.responseText);
@@ -1180,18 +1055,10 @@
                                 rank_nopacks: info.oNoPacks,
                                 rank_hardest: info.oHardest,
                                 rank_extremes: info.oExtremes,
-                                t_rank_packs: info.tPacks,
-                                t_rank_nopacks: info.tNoPacks,
-                                t_rank_hardest: info.tHardest,
-                                t_rank_extremes: info.tExtremes,
                                 g_rank_packs: info.gPacks,
                                 g_rank_nopacks: info.gNoPacks,
                                 g_rank_hardest: info.gHardest,
-                                g_rank_extremes: info.gExtremes,
-                                g_t_rank_packs: info.gtPacks,
-                                g_t_rank_nopacks: info.gtNoPacks,
-                                g_t_rank_hardest: info.gtHardest,
-                                g_t_rank_extremes: info.gtExtremes
+                                g_rank_extremes: info.gExtremes
                             }),
                             onload: function (postRes) {
                                 try {
@@ -1210,10 +1077,10 @@
                                         GM_setValue('czsk_saved_r_nopacks', info.oNoPacks);
                                         GM_setValue('czsk_saved_r_hardest', info.oHardest);
                                         GM_setValue('czsk_saved_r_extremes', info.oExtremes);
-                                        GM_setValue('czsk_saved_t_packs', info.tPacks);
-                                        GM_setValue('czsk_saved_t_nopacks', info.tNoPacks);
-                                        GM_setValue('czsk_saved_t_hardest', info.tHardest);
-                                        GM_setValue('czsk_saved_t_extremes', info.tExtremes);
+                                        GM_setValue('czsk_saved_g_packs', info.gPacks);
+                                        GM_setValue('czsk_saved_g_nopacks', info.gNoPacks);
+                                        GM_setValue('czsk_saved_g_hardest', info.gHardest);
+                                        GM_setValue('czsk_saved_g_extremes', info.gExtremes);
 
                                         GM_setValue('czsk_players_cache_time', 0);
 
