@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         AREDL CZ/SK Komunitní Mapa Hráčů
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.8
+// @updateURL    https://raw.githubusercontent.com/DrowexYT/mapagd/main/mapa.user.js
+// @downloadURL  https://raw.githubusercontent.com/DrowexYT/mapagd/main/mapa.user.js
 // @description  Interaktivní Leaflet komunitní mapa vložená přímo do AREDL pro české a slovenské Geometry Dash hráče.
 // @author       Drowex
 // @match        https://aredl.net/*
@@ -29,7 +31,7 @@
     let activeMetric = 'rank_packs';
     let activeNatFilter = 'ALL';
     let mapMarkers = {};
-    
+
     // Memory cache for pure server stats
     let lastFetchedUrl = '';
     let pureProfileRanks = null;
@@ -173,7 +175,7 @@
 
             let searchArea = nameElement.parentElement;
             if (searchArea && searchArea.parentElement) searchArea = searchArea.parentElement;
-            
+
             const flags = searchArea ? searchArea.querySelectorAll('img:not(.czsk-flag-img)') : [];
             for(let img of flags) {
                 if (img.src.includes('flagcdn.com') || img.src.includes('/flags/') || img.src.includes('/country-flags/')) {
