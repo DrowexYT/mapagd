@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AREDL CZ/SK Komunitní Mapa Hráčů
 // @namespace    http://tampermonkey.net/
-// @version      1.5
+// @version      1.3
 // @description  Interaktivní Leaflet komunitní mapa vložená přímo do AREDL pro české a slovenské Geometry Dash hráče.
 // @author       Drowex
 // @match        https://aredl.net/*
@@ -29,6 +29,10 @@
     let activeMetric = 'rank_packs';
     let activeNatFilter = 'ALL';
     let mapMarkers = {};
+    
+    // Memory cache for pure server stats
+    let lastFetchedUrl = '';
+    let pureProfileRanks = null;
 
     function normalizeUrl(url) {
         if (!url) return '';
@@ -50,358 +54,56 @@
     }
 
     GM_addStyle(`
-        @keyframes czskFadeIn {
-            from { opacity: 0; backdrop-filter: blur(0px); }
-            to { opacity: 1; backdrop-filter: blur(6px); }
-        }
-        @keyframes czskPopIn {
-            from { transform: scale(0.96); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-
-        .czsk-nav-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            color: #ff9800 !important;
-            font-size: 0.875rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            transition: color 0.15s ease;
-            margin-left: 12px;
-        }
-        .czsk-nav-btn:hover {
-            color: #ffa726 !important;
-        }
-        .czsk-floating-btn {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            z-index: 999998;
-            background: #151821;
-            padding: 8px 14px;
-            border: 1px solid #ff9800;
-            border-radius: 6px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
-        }
-        .czsk-map-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 999999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(6px);
-            animation: czskFadeIn 0.2s ease-out forwards;
-        }
-        .czsk-map-modal {
-            background: #151821;
-            border: 1.5px solid #ff9800;
-            border-radius: 12px;
-            width: 98vw;
-            max-width: 1800px;
-            height: 95vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 0 16px 50px rgba(0,0,0,0.9);
-            font-family: inherit;
-            animation: czskPopIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        }
-        .czsk-map-header {
-            padding: 14px 20px;
-            background: #1c202c;
-            border-bottom: 1px solid #2a2e3d;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .czsk-map-body {
-            display: flex;
-            flex-direction: row;
-            flex: 1;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        .czsk-left-sidebar {
-            width: 320px;
-            min-width: 320px;
-            background: #181b24;
-            border-right: 1px solid #2a2e3d;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .czsk-lb-header {
-            padding: 16px 20px 10px;
-            background: #11141c;
-            color: #ff9800;
-            font-weight: 800;
-            font-size: 14px;
-            text-transform: uppercase;
-        }
-        .czsk-lb-tabs {
-            display: flex;
-            background: #11141c;
-            border-bottom: 1px solid #2a2e3d;
-        }
-        .czsk-lb-tab {
-            flex: 1;
-            padding: 10px 0;
-            text-align: center;
-            font-size: 12px;
-            font-weight: bold;
-            color: #8e95a5;
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid transparent;
-            cursor: pointer;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
-        .czsk-lb-tab:hover {
-            color: #ccc;
-            background: rgba(255,152,0,0.05);
-        }
-        .czsk-lb-tab.active {
-            color: #ff9800;
-            border-bottom: 2px solid #ff9800;
-            background: rgba(255,152,0,0.1);
-        }
-        .czsk-lb-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px 0;
-        }
+        @keyframes czskFadeIn { from { opacity: 0; backdrop-filter: blur(0px); } to { opacity: 1; backdrop-filter: blur(6px); } }
+        @keyframes czskPopIn { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .czsk-nav-btn { display: inline-flex; align-items: center; gap: 6px; color: #ff9800 !important; font-size: 0.875rem; font-weight: 500; text-transform: uppercase; background: transparent; border: none; cursor: pointer; transition: color 0.15s ease; margin-left: 12px; }
+        .czsk-nav-btn:hover { color: #ffa726 !important; }
+        .czsk-floating-btn { position: fixed; bottom: 20px; left: 20px; z-index: 999998; background: #151821; padding: 8px 14px; border: 1px solid #ff9800; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+        .czsk-map-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); z-index: 999999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px); animation: czskFadeIn 0.2s ease-out forwards; }
+        .czsk-map-modal { background: #151821; border: 1.5px solid #ff9800; border-radius: 12px; width: 98vw; max-width: 1800px; height: 95vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 50px rgba(0,0,0,0.9); font-family: inherit; animation: czskPopIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .czsk-map-header { padding: 14px 20px; background: #1c202c; border-bottom: 1px solid #2a2e3d; display: flex; align-items: center; justify-content: space-between; }
+        .czsk-map-body { display: flex; flex-direction: row; flex: 1; width: 100%; height: 100%; overflow: hidden; }
+        .czsk-left-sidebar { width: 320px; min-width: 320px; background: #181b24; border-right: 1px solid #2a2e3d; display: flex; flex-direction: column; overflow: hidden; }
+        .czsk-lb-header { padding: 16px 20px 10px; background: #11141c; color: #ff9800; font-weight: 800; font-size: 14px; text-transform: uppercase; }
+        .czsk-lb-tabs { display: flex; background: #11141c; border-bottom: 1px solid #2a2e3d; }
+        .czsk-lb-tab { flex: 1; padding: 10px 0; text-align: center; font-size: 12px; font-weight: bold; color: #8e95a5; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .czsk-lb-tab:hover { color: #ccc; background: rgba(255,152,0,0.05); }
+        .czsk-lb-tab.active { color: #ff9800; border-bottom: 2px solid #ff9800; background: rgba(255,152,0,0.1); }
+        .czsk-lb-list { flex: 1; overflow-y: auto; padding: 10px 0; }
         .czsk-lb-list::-webkit-scrollbar { width: 6px; }
         .czsk-lb-list::-webkit-scrollbar-track { background: #11141c; }
         .czsk-lb-list::-webkit-scrollbar-thumb { background: #444a5e; border-radius: 4px; }
-        .czsk-lb-item {
-            display: flex;
-            align-items: center;
-            padding: 14px 20px;
-            cursor: pointer;
-            transition: 0.15s;
-            border-bottom: 1px solid #202430;
-        }
-        .czsk-lb-item:hover {
-            background: #202430;
-        }
-        .czsk-lb-rank {
-            font-weight: 900;
-            width: 40px;
-        }
-        .czsk-lb-name {
-            flex: 1;
-            color: #fff;
-            font-weight: bold;
-            font-size: 15px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .czsk-flag-img {
-            width: 24px;
-            height: auto;
-            border-radius: 2px;
-            box-shadow: 0 0 3px rgba(0,0,0,0.6);
-            margin-left: 12px;
-            display: inline-block;
-        }
-
-        #czsk-leaflet-map {
-            flex: 1;
-            height: 100%;
-            background: #0f1117;
-        }
-
-        .czsk-sidebar {
-            width: 340px;
-            min-width: 340px;
-            background: #181b24;
-            border-left: 1px solid #2a2e3d;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            overflow-y: auto;
-            box-sizing: border-box;
-        }
-        .czsk-sidebar input[type="text"] {
-            background: #252a38;
-            border: 1px solid #444a5e;
-            color: #fff;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 13px;
-            width: 100%;
-            box-sizing: border-box;
-            transition: border-color 0.2s;
-        }
-        .czsk-sidebar input[type="text"]:focus {
-            outline: none;
-            border-color: #ff9800;
-        }
-        .czsk-radio-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            background: #11141c;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #2a2e3d;
-        }
-        .czsk-radio-group label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #fff;
-            font-size: 13px;
-            cursor: pointer;
-            transition: color 0.1s;
-        }
-        .czsk-radio-group label:hover {
-            color: #ff9800;
-        }
-        .czsk-radio-group input[type="radio"] {
-            accent-color: #ff9800;
-            width: 16px;
-            height: 16px;
-            margin: 0;
-            cursor: pointer;
-        }
-        .czsk-sidebar button.czsk-submit {
-            background: #ff9800;
-            color: #121316;
-            font-weight: 800;
-            padding: 10px 14px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: 0.15s;
-            font-size: 14px;
-            width: 100%;
-            box-shadow: 0 4px 10px rgba(255,152,0,0.2);
-        }
-        .czsk-sidebar button.czsk-submit:hover {
-            background: #ffa726;
-            transform: translateY(-1px);
-        }
-        .czsk-sidebar button.czsk-submit:active {
-            transform: translateY(1px);
-        }
-        .czsk-theme-toggle {
-            background: transparent !important;
-            border: 1px solid #ff9800 !important;
-            color: #ff9800 !important;
-            font-size: 12px !important;
-            padding: 4px 8px !important;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .czsk-theme-toggle:hover {
-            background: rgba(255, 152, 0, 0.15) !important;
-            color: #ffa726 !important;
-        }
-        .czsk-star-marker-container {
-            background: transparent;
-            border: none;
-        }
-        .czsk-star-inner {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-            transition: transform 0.15s ease;
-            cursor: pointer;
-            will-change: transform;
-            -webkit-font-smoothing: antialiased;
-        }
-        .czsk-star-inner:hover {
-            transform: scale(1.35);
-        }
-        .czsk-star-name {
-            font-size: 11px;
-            font-weight: 900;
-            margin-top: 4px;
-            white-space: nowrap;
-            background: rgba(15, 17, 23, 0.85);
-            padding: 3px 7px;
-            border-radius: 6px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-            text-rendering: optimizeLegibility;
-            letter-spacing: 0.2px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .leaflet-popup-content-wrapper {
-            background: #1a1e29 !important;
-            color: #fff !important;
-            border: 1px solid #ff9800 !important;
-            border-radius: 10px !important;
-            padding: 0 !important;
-        }
-        .leaflet-popup-content {
-            margin: 14px !important;
-            width: auto !important;
-        }
-        .leaflet-popup-tip {
-            background: #1a1e29 !important;
-        }
-        .czsk-autocomplete-container {
-            position: relative;
-            width: 100%;
-        }
-        .czsk-autocomplete-list {
-            position: absolute;
-            top: calc(100% + 4px);
-            left: 0;
-            right: 0;
-            background: #1f222b;
-            border: 1px solid #ff9800;
-            border-radius: 6px;
-            max-height: 160px;
-            overflow-y: auto;
-            z-index: 2000;
-            display: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.8);
-        }
-        .czsk-autocomplete-item {
-            padding: 10px 12px;
-            font-size: 12px;
-            cursor: pointer;
-            border-bottom: 1px solid #2a2d37;
-            color: #ccc;
-        }
-        .czsk-autocomplete-item:hover {
-            background: #ff9800;
-            color: #121316;
-            font-weight: bold;
-        }
-        .czsk-autocomplete-loading {
-            padding: 10px 12px;
-            font-size: 11px;
-            color: #8e95a5;
-            font-style: italic;
-            text-align: center;
-        }
-        .czsk-nat-btn:hover {
-            background: rgba(255,255,255,0.05);
-        }
+        .czsk-lb-item { display: flex; align-items: center; padding: 14px 20px; cursor: pointer; transition: 0.15s; border-bottom: 1px solid #202430; }
+        .czsk-lb-item:hover { background: #202430; }
+        .czsk-lb-rank { font-weight: 900; width: 40px; }
+        .czsk-lb-name { flex: 1; color: #fff; font-weight: bold; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .czsk-flag-img { width: 24px; height: auto; border-radius: 2px; box-shadow: 0 0 3px rgba(0,0,0,0.6); margin-left: 12px; display: inline-block; }
+        #czsk-leaflet-map { flex: 1; height: 100%; background: #0f1117; }
+        .czsk-sidebar { width: 340px; min-width: 340px; background: #181b24; border-left: 1px solid #2a2e3d; padding: 20px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; box-sizing: border-box; }
+        .czsk-sidebar input[type="text"] { background: #252a38; border: 1px solid #444a5e; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 13px; width: 100%; box-sizing: border-box; transition: border-color 0.2s; }
+        .czsk-sidebar input[type="text"]:focus { outline: none; border-color: #ff9800; }
+        .czsk-radio-group { display: flex; flex-direction: column; gap: 8px; background: #11141c; padding: 12px; border-radius: 8px; border: 1px solid #2a2e3d; }
+        .czsk-radio-group label { display: flex; align-items: center; gap: 8px; color: #fff; font-size: 13px; cursor: pointer; transition: color 0.1s; }
+        .czsk-radio-group label:hover { color: #ff9800; }
+        .czsk-radio-group input[type="radio"] { accent-color: #ff9800; width: 16px; height: 16px; margin: 0; cursor: pointer; }
+        .czsk-sidebar button.czsk-submit { background: #ff9800; color: #121316; font-weight: 800; padding: 10px 14px; border: none; border-radius: 6px; cursor: pointer; transition: 0.15s; font-size: 14px; width: 100%; box-shadow: 0 4px 10px rgba(255,152,0,0.2); }
+        .czsk-sidebar button.czsk-submit:hover { background: #ffa726; transform: translateY(-1px); }
+        .czsk-sidebar button.czsk-submit:active { transform: translateY(1px); }
+        .czsk-theme-toggle { background: transparent !important; border: 1px solid #ff9800 !important; color: #ff9800 !important; font-size: 12px !important; padding: 4px 8px !important; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .czsk-theme-toggle:hover { background: rgba(255, 152, 0, 0.15) !important; color: #ffa726 !important; }
+        .czsk-star-marker-container { background: transparent; border: none; }
+        .czsk-star-inner { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; transition: transform 0.15s ease; cursor: pointer; will-change: transform; -webkit-font-smoothing: antialiased; }
+        .czsk-star-inner:hover { transform: scale(1.35); }
+        .czsk-star-name { font-size: 11px; font-weight: 900; margin-top: 4px; white-space: nowrap; background: rgba(15, 17, 23, 0.85); padding: 3px 7px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.5); text-rendering: optimizeLegibility; letter-spacing: 0.2px; display: flex; align-items: center; gap: 4px; }
+        .leaflet-popup-content-wrapper { background: #1a1e29 !important; color: #fff !important; border: 1px solid #ff9800 !important; border-radius: 10px !important; padding: 0 !important; }
+        .leaflet-popup-content { margin: 14px !important; width: auto !important; }
+        .leaflet-popup-tip { background: #1a1e29 !important; }
+        .czsk-autocomplete-container { position: relative; width: 100%; }
+        .czsk-autocomplete-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #1f222b; border: 1px solid #ff9800; border-radius: 6px; max-height: 160px; overflow-y: auto; z-index: 2000; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.8); }
+        .czsk-autocomplete-item { padding: 10px 12px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #2a2d37; color: #ccc; }
+        .czsk-autocomplete-item:hover { background: #ff9800; color: #121316; font-weight: bold; }
+        .czsk-autocomplete-loading { padding: 10px 12px; font-size: 11px; color: #8e95a5; font-style: italic; text-align: center; }
+        .czsk-nat-btn:hover { background: rgba(255,255,255,0.05); }
     `);
 
     function getMarkerConfig(rank, isGlobal = false) {
@@ -418,20 +120,50 @@
         }
     }
 
+    // SERVER-FETCH BYPASS: Grabs authentic stats direct from AREDL servers, bypassing any client-side Tampermonkey injections
+    async function getPureRanks() {
+        const currentUrl = window.location.href;
+        if (!currentUrl.includes('/profile/user/')) return null;
+        if (currentUrl === lastFetchedUrl && pureProfileRanks) return pureProfileRanks;
+
+        try {
+            const res = await fetch(currentUrl, { cache: 'no-store' });
+            const html = await res.text();
+            const text = html.replace(/<[^>]+>/g, ' ').toUpperCase().replace(/\s+/g, ' ');
+
+            const countryIdx = text.indexOf('COUNTRY RANKINGS');
+            const globalText = countryIdx !== -1 ? text.substring(0, countryIdx) : text;
+            const countryText = countryIdx !== -1 ? text.substring(countryIdx) : "";
+
+            const extract = (keyword, searchBlock) => {
+                const regex = new RegExp(keyword + '[^#]{0,100}#\\s*([\\d,]+)');
+                const m = searchBlock.match(regex);
+                return m ? parseInt(m[1].replace(/,/g, '')) : 99999;
+            };
+
+            const ranks = {
+                oPacks: extract('POINTS RANK \\(WITH PACKS\\)', countryText),
+                oNoPacks: extract('POINTS RANK(?! \\(WITH)', countryText),
+                oHardest: extract('HARDEST LEVEL RANK', countryText),
+                oExtremes: extract('EXTREMES COUNT RANK', countryText),
+                gPacks: extract('POINTS RANK \\(WITH PACKS\\)', globalText),
+                gNoPacks: extract('POINTS RANK(?! \\(WITH)', globalText),
+                gHardest: extract('HARDEST LEVEL RANK', globalText),
+                gExtremes: extract('EXTREMES COUNT RANK', globalText)
+            };
+
+            pureProfileRanks = ranks;
+            lastFetchedUrl = currentUrl;
+            return ranks;
+        } catch (e) {
+            return null;
+        }
+    }
+
     function autoDetectProfileInfo() {
         let detectedName = GM_getValue('czsk_saved_name', '');
         let detectedLink = GM_getValue('czsk_saved_link', '');
         let nationality = GM_getValue('czsk_saved_nat', 'CZ');
-
-        let oPacks = GM_getValue('czsk_saved_r_packs', 99999);
-        let oNoPacks = GM_getValue('czsk_saved_r_nopacks', 99999);
-        let oHardest = GM_getValue('czsk_saved_r_hardest', 99999);
-        let oExtremes = GM_getValue('czsk_saved_r_extremes', 99999);
-
-        let gPacks = GM_getValue('czsk_saved_g_packs', 99999);
-        let gNoPacks = GM_getValue('czsk_saved_g_nopacks', 99999);
-        let gHardest = GM_getValue('czsk_saved_g_hardest', 99999);
-        let gExtremes = GM_getValue('czsk_saved_g_extremes', 99999);
 
         const nameElement = document.querySelector('p.clamp-\\[text-2xl-4xl-clamp\\], p.font-medium.text-secondary-foreground');
 
@@ -439,49 +171,22 @@
             detectedName = nameElement.textContent.trim();
             detectedLink = normalizeUrl(window.location.href);
 
-            const flags = document.querySelectorAll('img:not(.czsk-flag-img)');
+            let searchArea = nameElement.parentElement;
+            if (searchArea && searchArea.parentElement) searchArea = searchArea.parentElement;
+            
+            const flags = searchArea ? searchArea.querySelectorAll('img:not(.czsk-flag-img)') : [];
             for(let img of flags) {
                 if (img.src.includes('flagcdn.com') || img.src.includes('/flags/') || img.src.includes('/country-flags/')) {
                     if(img.src.includes('cz.svg') || img.src.includes('cz.png') || img.alt.toLowerCase().includes('czech')) nationality = 'CZ';
                     if(img.src.includes('sk.svg') || img.src.includes('sk.png') || img.alt.toLowerCase().includes('slovak')) nationality = 'SK';
                 }
             }
-
-            const bodyText = document.body.innerText.toUpperCase().replace(/\s+/g, ' ');
-            const countryIdx = bodyText.indexOf('COUNTRY RANKINGS');
-
-            let globalText = countryIdx !== -1 ? bodyText.substring(0, countryIdx) : bodyText;
-            let countryText = countryIdx !== -1 ? bodyText.substring(countryIdx) : "";
-
-            const extractRank = (keyword, textToSearch) => {
-                const regex = new RegExp(keyword + '[^#]{0,100}#\\s*([\\d,]+)');
-                const m = textToSearch.match(regex);
-                return m ? parseInt(m[1].replace(/,/g, '')) : 99999;
-            };
-
-            if (countryText) {
-                oPacks = extractRank('POINTS RANK \\(WITH PACKS\\)', countryText);
-                oNoPacks = extractRank('POINTS RANK(?! \\(WITH)', countryText);
-                oHardest = extractRank('HARDEST LEVEL RANK', countryText);
-                oExtremes = extractRank('EXTREMES COUNT RANK', countryText);
-            }
-
-            if (globalText) {
-                gPacks = extractRank('POINTS RANK \\(WITH PACKS\\)', globalText);
-                gNoPacks = extractRank('POINTS RANK(?! \\(WITH)', globalText);
-                gHardest = extractRank('HARDEST LEVEL RANK', globalText);
-                gExtremes = extractRank('EXTREMES COUNT RANK', globalText);
-            }
         }
 
-        return {
-            name: detectedName, link: detectedLink, nationality: nationality,
-            oPacks, oNoPacks, oHardest, oExtremes,
-            gPacks, gNoPacks, gHardest, gExtremes
-        };
+        return { name: detectedName, link: detectedLink, nationality: nationality };
     }
 
-    function checkAndAutoSyncStats() {
+    async function checkAndAutoSyncStats() {
         const savedName = GM_getValue('czsk_saved_name');
         const savedCity = GM_getValue('czsk_saved_city');
         const savedLat = GM_getValue('czsk_saved_lat');
@@ -494,20 +199,22 @@
 
         const info = autoDetectProfileInfo();
         if (!info.name || info.name.toLowerCase() !== savedName.toLowerCase()) return;
-        if (info.oPacks === 99999 && info.oNoPacks === 99999) return;
+
+        const ranks = await getPureRanks();
+        if (!ranks || (ranks.oPacks === 99999 && ranks.oNoPacks === 99999)) return;
 
         const lastSync = GM_getValue('czsk_last_auto_sync', 0);
         const now = Date.now();
 
         const hasChanged = (
-            info.oPacks !== GM_getValue('czsk_saved_r_packs') ||
-            info.oNoPacks !== GM_getValue('czsk_saved_r_nopacks') ||
-            info.oHardest !== GM_getValue('czsk_saved_r_hardest') ||
-            info.oExtremes !== GM_getValue('czsk_saved_r_extremes') ||
-            info.gPacks !== GM_getValue('czsk_saved_g_packs') ||
-            info.gNoPacks !== GM_getValue('czsk_saved_g_nopacks') ||
-            info.gHardest !== GM_getValue('czsk_saved_g_hardest') ||
-            info.gExtremes !== GM_getValue('czsk_saved_g_extremes') ||
+            ranks.oPacks !== GM_getValue('czsk_saved_r_packs') ||
+            ranks.oNoPacks !== GM_getValue('czsk_saved_r_nopacks') ||
+            ranks.oHardest !== GM_getValue('czsk_saved_r_hardest') ||
+            ranks.oExtremes !== GM_getValue('czsk_saved_r_extremes') ||
+            ranks.gPacks !== GM_getValue('czsk_saved_g_packs') ||
+            ranks.gNoPacks !== GM_getValue('czsk_saved_g_nopacks') ||
+            ranks.gHardest !== GM_getValue('czsk_saved_g_hardest') ||
+            ranks.gExtremes !== GM_getValue('czsk_saved_g_extremes') ||
             info.nationality !== savedNat
         );
 
@@ -524,14 +231,14 @@
                 lat: savedLat,
                 lng: savedLng,
                 nationality: info.nationality,
-                rank_packs: info.oPacks,
-                rank_nopacks: info.oNoPacks,
-                rank_hardest: info.oHardest,
-                rank_extremes: info.oExtremes,
-                g_rank_packs: info.gPacks,
-                g_rank_nopacks: info.gNoPacks,
-                g_rank_hardest: info.gHardest,
-                g_rank_extremes: info.gExtremes
+                rank_packs: ranks.oPacks,
+                rank_nopacks: ranks.oNoPacks,
+                rank_hardest: ranks.oHardest,
+                rank_extremes: ranks.oExtremes,
+                g_rank_packs: ranks.gPacks,
+                g_rank_nopacks: ranks.gNoPacks,
+                g_rank_hardest: ranks.gHardest,
+                g_rank_extremes: ranks.gExtremes
             }),
             onload: function (res) {
                 try {
@@ -539,14 +246,14 @@
                     if (j.status === 'success') {
                         GM_setValue('czsk_last_auto_sync', now);
                         GM_setValue('czsk_saved_nat', info.nationality);
-                        GM_setValue('czsk_saved_r_packs', info.oPacks);
-                        GM_setValue('czsk_saved_r_nopacks', info.oNoPacks);
-                        GM_setValue('czsk_saved_r_hardest', info.oHardest);
-                        GM_setValue('czsk_saved_r_extremes', info.oExtremes);
-                        GM_setValue('czsk_saved_g_packs', info.gPacks);
-                        GM_setValue('czsk_saved_g_nopacks', info.gNoPacks);
-                        GM_setValue('czsk_saved_g_hardest', info.gHardest);
-                        GM_setValue('czsk_saved_g_extremes', info.gExtremes);
+                        GM_setValue('czsk_saved_r_packs', ranks.oPacks);
+                        GM_setValue('czsk_saved_r_nopacks', ranks.oNoPacks);
+                        GM_setValue('czsk_saved_r_hardest', ranks.oHardest);
+                        GM_setValue('czsk_saved_r_extremes', ranks.oExtremes);
+                        GM_setValue('czsk_saved_g_packs', ranks.gPacks);
+                        GM_setValue('czsk_saved_g_nopacks', ranks.gNoPacks);
+                        GM_setValue('czsk_saved_g_hardest', ranks.gHardest);
+                        GM_setValue('czsk_saved_g_extremes', ranks.gExtremes);
                     }
                 } catch (e) {}
             }
@@ -626,8 +333,8 @@
                         <div class="czsk-lb-header">Leaderboard</div>
                         <div class="czsk-lb-tabs">
                             <button class="czsk-lb-tab active" data-nat="ALL">Global</button>
-                            <button class="czsk-lb-tab" data-nat="CZ"><img src="https://flagcdn.com/w20/cz.png" class="czsk-flag-img" style="margin:0; width:14px;"> CZ</button>
-                            <button class="czsk-lb-tab" data-nat="SK"><img src="https://flagcdn.com/w20/sk.png" class="czsk-flag-img" style="margin:0; width:14px;"> SK</button>
+                            <button class="czsk-lb-tab" data-nat="CZ"><img src="https://flagcdn.com/w20/cz.png" class="czsk-flag-img" style="margin:0; width:14px; box-shadow:none;"> CZ</button>
+                            <button class="czsk-lb-tab" data-nat="SK"><img src="https://flagcdn.com/w20/sk.png" class="czsk-flag-img" style="margin:0; width:14px; box-shadow:none;"> SK</button>
                         </div>
                         <div id="czsk-leaderboard-list" class="czsk-lb-list"></div>
                     </div>
@@ -736,7 +443,7 @@
             });
         });
 
-        initLeaflet(info);
+        initLeaflet();
     }
 
     function renderLeaderboard(filteredPlayers) {
@@ -746,7 +453,7 @@
         const isGlobal = activeNatFilter === 'ALL';
 
         let sorted = [...filteredPlayers].sort((a, b) => {
-            let metricKey = isGlobal ? 'g_rank_' + activeMetric.split('_')[1] : activeMetric;
+            let metricKey = isGlobal ? 'g_' + activeMetric : activeMetric;
             const valA = parseInt(a[metricKey]) || 99999;
             const valB = parseInt(b[metricKey]) || 99999;
             return valA - valB;
@@ -755,7 +462,7 @@
         lbContainer.innerHTML = '';
 
         sorted.forEach(player => {
-            let metricKey = isGlobal ? 'g_rank_' + activeMetric.split('_')[1] : activeMetric;
+            let metricKey = isGlobal ? 'g_' + activeMetric : activeMetric;
             const rank = parseInt(player[metricKey]) || 99999;
             if (rank === 99999) return;
 
@@ -790,7 +497,7 @@
         });
     }
 
-    function initLeaflet(info) {
+    function initLeaflet() {
         darkTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_48i2_1_0cafb22dc17a74c880f6326e', {
             attribution: '&copy; OpenStreetMap &copy; CARTO',
             subdomains: 'abcd',
@@ -846,7 +553,7 @@
             }
         });
 
-        setupPinSubmission(info);
+        setupPinSubmission();
         setupAutocomplete();
     }
 
@@ -866,8 +573,7 @@
 
         filteredPlayers.forEach(player => {
             const offKey = isGlobal ? 'g_' + activeMetric : activeMetric;
-            const valOff = parseInt(player[offKey]) || 99999;
-            const activeRank = valOff;
+            const activeRank = parseInt(player[offKey]) || 99999;
             const meta = getMarkerConfig(activeRank, isGlobal);
 
             const pNat = (player.nationality || 'CZ').toUpperCase();
@@ -909,7 +615,7 @@
                 <div style="font-size:14px; font-family:sans-serif; min-width:200px; line-height:1.3;">
                     <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:10px;">
                         <strong style="color:#ff9800; font-size:20px;">${player.name}</strong>
-                        <img src="${flagUrl}" class="czsk-flag-img" style="margin:0; width:20px;">
+                        <img src="${flagUrl}" class="czsk-flag-img" style="margin:0; width:20px; box-shadow:none;">
                     </div>
 
                     <div style="background:#11141c; border-radius:8px; padding:10px; margin-bottom:12px; display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
@@ -958,7 +664,7 @@
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: url,
-                    headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/1.5' },
+                    headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/1.8' },
                     onload: function (res) {
                         try {
                             const data = JSON.parse(res.responseText);
@@ -993,12 +699,11 @@
         });
     }
 
-    function setupPinSubmission(info) {
+    function setupPinSubmission() {
         const btn = document.getElementById('czsk-submit-location');
         const statusMsg = document.getElementById('czsk-status-msg');
 
-        btn.onclick = () => {
-            // Re-inserted edit-badge ownership check for security
+        btn.onclick = async () => {
             const isOwnProfile = document.querySelector('img[src*="/assets/badge-icons/edit.webp"]');
             if (!isOwnProfile) {
                 statusMsg.textContent = 'Můžeš přidat nebo upravit lokaci pouze ze svého vlastního profilu!';
@@ -1023,15 +728,22 @@
                 return;
             }
 
-            statusMsg.textContent = 'Zjišťuji souřadnice...';
+            statusMsg.textContent = 'Stahuji čisté statistiky a geokóduji...';
             statusMsg.style.color = '#ff9800';
+
+            const ranks = await getPureRanks();
+            if (!ranks || (ranks.oPacks === 99999 && ranks.oNoPacks === 99999)) {
+                statusMsg.textContent = 'Chyba: Nepodařilo se načíst originální statistiky ze serveru AREDL.';
+                statusMsg.style.color = '#ff6b6b';
+                return;
+            }
 
             const geocodeUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&countrycodes=cz,sk&format=json&limit=1`;
 
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: geocodeUrl,
-                headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/1.5' },
+                headers: { 'User-Agent': 'AREDL-CZSK-Community-Map/1.8' },
                 onload: function (geoRes) {
                     try {
                         const geoData = JSON.parse(geoRes.responseText);
@@ -1059,14 +771,14 @@
                                 lat: lat,
                                 lng: lng,
                                 nationality: nationality,
-                                rank_packs: info.oPacks,
-                                rank_nopacks: info.oNoPacks,
-                                rank_hardest: info.oHardest,
-                                rank_extremes: info.oExtremes,
-                                g_rank_packs: info.gPacks,
-                                g_rank_nopacks: info.gNoPacks,
-                                g_rank_hardest: info.gHardest,
-                                g_rank_extremes: info.gExtremes
+                                rank_packs: ranks.oPacks,
+                                rank_nopacks: ranks.oNoPacks,
+                                rank_hardest: ranks.oHardest,
+                                rank_extremes: ranks.oExtremes,
+                                g_rank_packs: ranks.gPacks,
+                                g_rank_nopacks: ranks.gNoPacks,
+                                g_rank_hardest: ranks.gHardest,
+                                g_rank_extremes: ranks.gExtremes
                             }),
                             onload: function (postRes) {
                                 try {
@@ -1081,14 +793,14 @@
                                         GM_setValue('czsk_saved_lat', lat);
                                         GM_setValue('czsk_saved_lng', lng);
                                         GM_setValue('czsk_saved_nat', nationality);
-                                        GM_setValue('czsk_saved_r_packs', info.oPacks);
-                                        GM_setValue('czsk_saved_r_nopacks', info.oNoPacks);
-                                        GM_setValue('czsk_saved_r_hardest', info.oHardest);
-                                        GM_setValue('czsk_saved_r_extremes', info.oExtremes);
-                                        GM_setValue('czsk_saved_g_packs', info.gPacks);
-                                        GM_setValue('czsk_saved_g_nopacks', info.gNoPacks);
-                                        GM_setValue('czsk_saved_g_hardest', info.gHardest);
-                                        GM_setValue('czsk_saved_g_extremes', info.gExtremes);
+                                        GM_setValue('czsk_saved_r_packs', ranks.oPacks);
+                                        GM_setValue('czsk_saved_r_nopacks', ranks.oNoPacks);
+                                        GM_setValue('czsk_saved_r_hardest', ranks.oHardest);
+                                        GM_setValue('czsk_saved_r_extremes', ranks.oExtremes);
+                                        GM_setValue('czsk_saved_g_packs', ranks.gPacks);
+                                        GM_setValue('czsk_saved_g_nopacks', ranks.gNoPacks);
+                                        GM_setValue('czsk_saved_g_hardest', ranks.gHardest);
+                                        GM_setValue('czsk_saved_g_extremes', ranks.gExtremes);
 
                                         GM_setValue('czsk_players_cache_time', 0);
 
